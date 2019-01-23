@@ -31,6 +31,7 @@ class Ajax {
         echo json_encode($resp);
     }
     function debug($message) {
+        // $_SERVER['UNIQUE_ID'] - unique resquest id? may only work on apache
         $json=json_encode($message);
         if (strlen($json) > 100) {
             $short=[];
@@ -41,7 +42,7 @@ class Ajax {
             }
             $json=json_encode($short);
         }
-        error_log("AJAX ".microtime().' '.$json);
+        error_log("AJAX,".$_SERVER['UNIQUE_ID'].','.microtime().','.$json);
     }
     function filepath($name) {
         return __DIR__.self::path.$name;
