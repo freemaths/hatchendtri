@@ -6,6 +6,7 @@
 class Ajax {
     const path='/../ajax/';
     function request() {
+        $this->start=microtime();
         error_reporting(E_ALL); // Reports all errors
         ini_set('display_errors','Off'); // Do not display errors for the end-users (security issue)
         ini_set('error_log',$this->filepath('error.log')); // Set a logging file
@@ -31,7 +32,6 @@ class Ajax {
         echo json_encode($resp);
     }
     function debug($message) {
-        // $_SERVER['UNIQUE_ID'] - unique resquest id? may only work on apache
         $json=json_encode($message);
         if (strlen($json) > 100) {
             $short=[];
@@ -42,7 +42,7 @@ class Ajax {
             }
             $json=json_encode($short);
         }
-        error_log("AJAX,".$_SERVER['UNIQUE_ID'].','.microtime().','.$json);
+        error_log("AJAX,".microtime().','.$json.','.$this->start);
     }
     function filepath($name) {
         return __DIR__.self::path.$name;
