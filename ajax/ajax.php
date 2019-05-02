@@ -17,11 +17,12 @@ class Ajax {
         }
         else $this->debug($json);
     }
-  
     private function req_files($json) {
         $files=[];
+        if (isset($json['type'])) $type=$json['type'];
+        else $type='gz';
         foreach ($json['files'] as $name) {
-            $gz=__DIR__.'/../storage/'.$name.'.gz';
+            $gz=__DIR__.'/../storage/'.$name.'.'.$type;
             $ts=filemtime($gz);
             $file=file_get_contents($gz);
             $files[]=['name'=>$name,'file'=>$file,'ts'=>$ts];
