@@ -23,11 +23,13 @@ class Ajax {
         else $type='gz';
         foreach ($json['files'] as $name) {
             $gz=__DIR__.'/../storage/'.$name.'.'.$type;
-            $ts=filemtime($gz);
-            $file=file_get_contents($gz);
-            $files[]=['name'=>$name,'file'=>$file,'ts'=>$ts];
+            if (file_exists($gz)) {
+                $ts=filemtime($gz);
+                $file=file_get_contents($gz);
+                $files[]=['name'=>$name,'file'=>$file,'ts'=>$ts];
+            }
         }
-        return ['files'=>$files];
+        return count($files)?['files'=>$files]:['e'=>'404','r'=>'file not found'];
     }
     private function req_save($json) {
         $path=__DIR__.'/../storage/';
