@@ -1,10 +1,20 @@
 {
-  "short_name": "Hatch End Triathlon",
-  "name": "Hatch End Triathlon",
+  "short_name": "HETswim",
+  "name": "HatchEndTriSwim",
   "icons": [
     {
-      "src": "swim.png",
+      "src": "favicon.ico",
+      "sizes": "16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "freemaths-512.png",
       "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "freemaths-1024.png",
+      "sizes": "1024x1024",
       "type": "image/png"
     }
   ],
