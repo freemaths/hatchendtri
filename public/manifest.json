@@ -3,7 +3,7 @@
   "name": "HatchEndTriSwim",
   "icons": [
     {
-      "src": "swim.png",
+      "src": "swimW.png",
       "sizes": "512x512",
       "type": "image/png"
     }
