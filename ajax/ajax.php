@@ -7,15 +7,15 @@ class Ajax {
     function request() {
         $this->init(['version'=>10]); // update when updated in FM.js
         $json=json_decode(file_get_contents("php://input"),true);
-        $this->debug($json,true);
+        if ($json['req']!='lanes') $this->debug($json,true);
         if ($json && isset($json['req'])) {
             if (method_exists($this,'req_'.$json['req'])) $resp=$this->{'req_'.$json['req']}($json);
             else $resp=['e'=>'404','r'=>"404 ({$json['req']} Not Found)"];
             $this->response($resp);
             if ($this->con) $this->db('close'); // don't leave open db
-            $this->debug($resp);
+            if ($json['req']!='lanes') $this->debug($resp);
         }
-        else $this->debug($json);
+        else if ($json['req']!='lanes') $this->debug($json);
     }
     private function req_files($json) {
         $files=[];
@@ -31,6 +31,9 @@ class Ajax {
         }
         return count($files)?['files'=>$files]:['e'=>'404','r'=>'file not found'];
     }
+    private function req_error($json) {
+        return ['logged'=>true];
+    }
     private function req_save($json) {
         $path=__DIR__.'/../storage/';
         $ret=[];
@@ -40,6 +43,105 @@ class Ajax {
         }
         //apcu_delete('versions');
         return $ret;
+    }
+    private function req_reset() {
+        foreach ([1,2,3] as $i) {
+            apcu_delete('swim_'.$i);
+            apcu_delete('ready_'.$i);
+            apcu_delete('finish_'.$i);
+            apcu_delete('laps_'.$i);
+            apcu_delete('results_'.$i);
+        }
+        return ['lanes'=>$this->lanes([1,2,3])];
+    }
+    
+    private function req_lanes($json) {
+        $ts=time();
+        if ($json['lane']!='start') $lanes=$this->lanes([$json['lane']]);
+        else $lanes=$this->lanes([1,2,3]);
+        return ['lanes'=>$lanes,'ts'=>$ts];
+    }
+
+    private function lanes($ls) {
+        $ret=[];
+        foreach ($ls as $i) {
+            $ret[$i]['swim']=apcu_fetch('swim_'.$i);
+            $ret[$i]['ready']=apcu_fetch('ready_'.$i);
+            $ret[$i]['finish']=apcu_fetch('finish_'.$i);
+            if ($ret[$i]['swim'] && $ret[$i]['ready']) foreach ($ret[$i]['swim'] as $c=>$l) {
+                if (isset($ret[$i]['ready'][$c]) && $l && $l['n']==$ret[$i]['ready'][$c]) $ret[$i]['ready'][$c]=0;
+            }
+            if ($ret[$i]['finish'] && $ret[$i]['swim']) foreach ($ret[$i]['finish'] as $c=>$n) {
+                if (isset($ret[$i]['swim'][$c]) && $ret[$i]['swim'][$c]['n'] && $n && $n*1==$ret[$i]['swim'][$c]['n']*1) $ret[$i]['swim'][$c]=null;
+            }
+            if ($l=apcu_fetch('laps_'.$i)) foreach($l as $c=>$ls) $ret[$i]['laps'][$c]=count($ls);
+            else $ret[$i]['laps']=false;
+        }
+        return $ret;
+    }
+    private function req_laps($json) {
+        $laps=apcu_fetch('laps_'.$json['lane']);
+        return ['laps'=>$laps];
+    }
+    private function req_results($json) {
+        $results=apcu_fetch('results');
+        return ['results'=>$results?$this->zip($results):null];
+    }
+    private function req_start($json) {
+        $ts=time();
+        $swim=apcu_fetch('swim_'.$json['lane']);
+        if (!$swim) $swim=[];
+        if (!isset($swim[$json['color']])) $swim[$json['color']]=[];
+        $swim[$json['color']]['n']=$json['number'];
+        $swim[$json['color']]['start']=$ts;
+        apcu_store('swim_'.$json['lane'],$swim);
+        return ['lanes'=>$this->lanes([1,2,3]),'ts'=>$ts];
+    }
+    private function req_ready($json) {
+        $ts=time();
+        $ready=apcu_fetch('ready_'.$json['lane']);
+        if (!$ready) $ready=[];
+        $ready[$json['color']]=$json['number'];
+        apcu_store('ready_'.$json['lane'],$ready);
+        return ['lanes'=>$this->lanes([1,2,3]),'ts'=>$ts];
+    }
+    private function req_finish($json) {
+        $ts=time();
+        $finish=apcu_fetch('finish_'.$json['lane']);
+        if (!$finish) $finish=[];
+        $finish[$json['color']]=$json['number'];
+        apcu_store('finish_'.$json['lane'],$finish);
+        $laps=apcu_fetch('laps_'.$json['lane']);
+        if ($laps && isset($laps[$json['color']])) {
+            $l=$laps[$json['color']];
+            if (count($l) && $ts-$l[count($l)-1]>5) $l[]=$ts;
+            $results=apcu_fetch('results_'.$json['lane']);
+            if (!$results) $results=[];
+            $results[$json['number']?$json['number']:$ts]=['n'=>$json['number'],'laps'=>$l,'l2'=>$json['laps']];
+            apcu_store('results_'.$json['lane'],$results);
+            file_put_contents(__DIR__.'/../storage/swim_'.$json['lane'].'.gz',$this->zip($results));
+            $laps[$json['color']]=[];
+            if (isset($laps['finished'])) unset($laps['finished']);
+            apcu_store('laps_'.$json['lane'],$laps);
+        }
+        return ['laps'=>$laps,'finish'=>$finish,'ts'=>$ts];
+    } 
+    function req_lap($json) {
+        $ts=time();
+        $laps=apcu_fetch('laps_'.$json['lane']);
+        if (!$laps) $laps=[];
+        $laps[$json['color']][]=$ts;
+        apcu_store('laps_'.$json['lane'],$laps);
+        return ['ts'=>$ts];
+    }
+    private function req_undo($json) {
+        $ts=time();
+        $laps=apcu_fetch('laps_'.$json['lane']);
+        if (isset($laps[$json['color']])) {
+            array_pop($laps[$json['color']]);
+            apcu_store('laps_'.$json['lane'],$laps);
+        }
+        return ['ts'=>$ts];
     }
     private function req_versions() {
         //if ($versions=apcu_fetch('versions')) return $versions; 
