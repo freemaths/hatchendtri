@@ -18,18 +18,18 @@ class Ajax {
         else if ($json['req']!='lanes') $this->debug($json);
     }
     private function req_files($json) {
-        $files=[];
+        $files=[];$e=false;
         if (isset($json['type'])) $type=$json['type'];
         else $type='gz';
         foreach ($json['files'] as $name) {
             $gz=__DIR__.'/../storage/'.$name.'.'.$type;
             if (file_exists($gz)) {
                 $ts=filemtime($gz);
-                $file=file_get_contents($gz);
-                $files[]=['name'=>$name,'file'=>$file,'ts'=>$ts];
+                if (!isset($json['ts']) || $ts>$json['ts']) $files[]=['name'=>$name,'file'=>file_get_contents($gz),'ts'=>$ts];
             }
+            else $e='file not found';
         }
-        return count($files)?['files'=>$files]:['e'=>'404','r'=>'file not found'];
+        return $e?['e'=>'404','r'=>'file not found']:['files'=>$files];
     }
     private function req_error($json) {
         return ['logged'=>true];
@@ -200,6 +200,7 @@ class Ajax {
         if (isset($message['password'])) $message['password']='...';
         if (is_array($message)) foreach ($message as $k=>$v) if (isset($message[$k]['password'])) $message[$k]['password']='...';
         $json=json_encode($message);
+        if (!$json) $json=json_encode(['json_error'=>json_last_error()]);
         if (strlen($json) > $max) {
             $short=[];
             foreach($message as $key=>$val) {
